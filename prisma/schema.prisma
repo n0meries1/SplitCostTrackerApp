@@ -13,5 +13,11 @@ model Post {
   currency    String
   expense     Float
   participant String
-  published DateTime @default(now())
+  createdAt  DateTime? @default(now())  
+}
+model Currency {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  label String
+  rate Float
+  createdAt DateTime? @default(now())
 }

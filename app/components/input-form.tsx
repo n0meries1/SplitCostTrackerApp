@@ -1,6 +1,10 @@
 "use client"
 
 import * as React from "react"
+import { useState, useEffect} from "react"
+import { cn } from "@/lib/utils"
+import { useRouter } from "next/router"
+import { Check, ChevronsUpDown } from "lucide-react"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -28,6 +32,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
+import { isString } from "util"
 
 const formSchema = z.object({
     activity: z.string().min(0).max(50, {
@@ -35,7 +40,10 @@ const formSchema = z.object({
     }),
 
     participant: z.array(z.string()).nonempty("You need to select at least 1 participant"),
-});
+    expense: z.string().min(1).max(50, {
+      message: "Expense must be logged or Expense greater than 50 characters"
+    })
+  });
 
 interface Participant {
   id: number;
@@ -43,6 +51,14 @@ interface Participant {
 }
 
 export function InputFormActivity(){
+    const [currencyOpen, setCurrencyOpen] = React.useState(false);
+    const [currencyValue, setCurrencyValue] = React.useState("");
+
+    interface Currency{
+    label: string,
+    rate: number,    
+}
+
     const [participants, setParticipants] = React.useState<Participant[]>([
       { id: 1, name: "Haojun"},
       { id: 2, name: "Kaiwen"},
@@ -55,6 +71,7 @@ export function InputFormActivity(){
       defaultValues: {
         activity: "",
         participant: participants.map((p) => p.name),
+        expense: "",
       },
     });
 
@@ -91,18 +108,124 @@ export function InputFormActivity(){
       }
     };
 
-    function onSubmit(values: z.infer<typeof formSchema>) {
-      console.log(values.activity);
-      console.log(values.participant);
-    }
+   
+    async function onSubmit(values: z.infer<typeof formSchema>) {
+     const formData: {
+    expense: number;             // Expense is a number
+    currency: string;            // Currency is a string
+    participants: string[];      // Participants is an array of strings
+    activity: string;            // Activity is a string
+} = {
+    expense: values.expense,
+    currency: currencyValue,
+    participants: values.participant,
+    activity: values.activity,
+};
+
+      console.log(values.participant)
+      try {
+        const response = await fetch("/api/writeExpenseInfo", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        });
+        if (response.ok) {
+          console.log("Successfully submitted");
+          
+        }
+        else {
+          console.log("Error in submitting");
+        }
+      }
+      catch (error) {
+        console.error("error in submitting form", error);
+      }
+      }
+    
+    
+      const [CurrencyTable, setCurrencyTable] = useState<Currency[]>([]);
+      useEffect(() => {
+        async function accessCurrency() {
+          try {
+            const response = await fetch("/api/currencyInfo");
+            const rateData : Currency[] = await response.json();
+            setCurrencyTable(rateData);
+          }
+          catch (error) {
+            console.error("error" , error);
+          } 
+        }
+        accessCurrency();
+      }, []);
 
 
 
 
      return (
-        <div className="pb-8 flex items-center justify-center">
+      <div className="flex justify-center items-center w-1/2">
+        <div className="pb-8 flex flex-col gap-4">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-x-8 w-2/12 flex">
+              <FormField
+              control={form.control}
+              name="expense"
+              render={({ field }) => (
+                <FormItem className="">
+                  <FormLabel>Expense</FormLabel>
+                  <FormControl>
+                    <Input placeholder="" {...field} className="w-33"/>
+                  </FormControl>
+                  <FormDescription>
+                    Enter your expense
+                  </FormDescription>
+                  <FormMessage />       
+               </FormItem>
+              )}
+            />
+          <Popover open = {currencyOpen} onOpenChange={setCurrencyOpen}>
+          <PopoverTrigger asChild>
+            <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-[200px] justify-between">
+
+          {currencyValue ? CurrencyTable.find((CurrencyTable) => CurrencyTable.label === currencyValue)?.label
+          : "Select Currency"}
+          <ChevronsUpDown className="opacity-50" />
+          </Button> 
+          </PopoverTrigger>
+          <PopoverContent className="w-[200px] p-0">
+        <Command>
+          <CommandInput placeholder="Search Currency..." className="h-9" />
+          <CommandList>
+            <CommandEmpty>No currency found.</CommandEmpty>
+            <CommandGroup>
+              {CurrencyTable.map((currency) => (
+                <CommandItem
+                  key={currency.label}
+                  value={currency.label}
+                  onSelect={(currentValue) => {
+                    setCurrencyValue(currentValue === currencyValue ? "" : currentValue)
+                    setCurrencyOpen(false)
+                  }}
+                >
+                  {currency.label}
+                  <Check
+                    className={cn(
+                      "ml-auto",
+                      currencyValue === currency.label ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+        </Popover>
           <FormField
           control={form.control}
           name="participant"
@@ -140,15 +263,15 @@ export function InputFormActivity(){
           
         )}
       />
-      
-            <FormField
+      <div className="h-8">
+              <FormField
               control={form.control}
               name="activity"
               render={({ field }) => (
                 <FormItem className="">
                   <FormLabel>Activity</FormLabel>
                   <FormControl>
-                    <Input placeholder="" {...field} className="w-32"/>
+                    <Input placeholder="" {...field} className="w-33"/>
                   </FormControl>
                   <FormDescription>
                     Enter your activity for tracking and posterity
@@ -158,11 +281,14 @@ export function InputFormActivity(){
               )}
             />
             <Button type="submit">Submit</Button>
+      </div>
+          
           </form>
         </Form>
 
         </div>
+        </div>
       )
 
-}
 
+    }

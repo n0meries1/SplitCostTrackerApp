@@ -18,20 +18,6 @@ interface Currency{
     label: string,
     rate: number,    
 }
-const CurrencyTable: Currency[] = [
-    {
-        label: "Yen", rate: 113.0
-    },
-    {
-        label: "USD", rate: 0.83
-    },
-    {
-        label: "EUR", rate: 0.9
-    },
-    {
-        label: "AUD", rate: 1.03
-    },
-]
 
 interface Expense{
     id: string,
@@ -45,6 +31,8 @@ interface Expense{
 export default function ExpenseTable() {
 
     const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [currentCurrencyIndex, setCurrentCurrencyIndex] = useState(0);
+    const [currencyRates, setCurrencyRates] = useState<Currency[]>([]);
 
     useEffect(()=> {
         async function fetchExpenses() {
@@ -62,18 +50,31 @@ export default function ExpenseTable() {
                 console.error("Failed to fetch", error);
             }
         }
+
+        async function fetchCurrencyRates(){
+            try {
+                const response = await fetch("/api/currencyInfo");
+                const ratesData: Currency[] = await response.json();
+                setCurrencyRates(ratesData);
+            }
+            catch (error) {
+                console.error("Error", error);
+            }
+        }
         fetchExpenses();
+        fetchCurrencyRates();
     }, []);
 
-    const [currentCurrency, setCurrentCurrency] = useState(0);
+
+    
     const handleCurrencyToggle = () => {
-        setCurrentCurrency((currentCurrency) => 
-            currentCurrency === CurrencyTable.length - 1 ? 0 : currentCurrency + 1
+        setCurrentCurrencyIndex((currentCurrency) => 
+            currentCurrency === currencyRates.length - 1 ? 0 : currentCurrency + 1
         );
     }
-
-    let currentCurrencyLabel = CurrencyTable[currentCurrency].label;
-    let currentCurrencyRate = CurrencyTable[currentCurrency].rate;
+    const currentCurrencyFinal = currencyRates[currentCurrencyIndex] || {
+        label: "SGD", rate: 1,
+    };
     return (
         
         <div className="flex items-center justify-center">
@@ -82,7 +83,7 @@ export default function ExpenseTable() {
                     <TableRow>
                         <TableHead className="text-center">S/N</TableHead>
                         <TableHead className="text-center cursor-pointer" onClick={() => handleCurrencyToggle()}>
-                            Amount Spent ({currentCurrencyLabel})</TableHead>
+                            Amount Spent ({currentCurrencyFinal.label})</TableHead>
                         <TableHead className="text-center">Amount Spent (SGD)</TableHead>
                         <TableHead className="text-center">Activity</TableHead>
                         <TableHead className="text-center">Participant</TableHead>
@@ -92,7 +93,7 @@ export default function ExpenseTable() {
                     {expenses.map((xs) => (
                         <TableRow key={xs.id}>
                             <TableCell className="font-medium text-center">{xs.sn}</TableCell>
-                            <TableCell className="text-center">{xs.expense / currentCurrencyRate}</TableCell>
+                            <TableCell className="text-center">{xs.expense * currentCurrencyFinal.rate}</TableCell>
                             <TableCell className="text-center">{xs.expense}</TableCell>
                             <TableCell className="text-cenexpenseer">{xs.activity}</TableCell>
                             <TableCell className="text-center">{xs.participant}</TableCell>                        

@@ -2,12 +2,12 @@ import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-    const expense = await prisma.post.findMany({
+    const currency = await prisma.currency.findMany({
         orderBy: {
-            createdAt: 'desc',
+            createdAt: 'asc',
         },
     });
-    return NextResponse.json(expense);
+    return NextResponse.json(currency);
 
 }
 
